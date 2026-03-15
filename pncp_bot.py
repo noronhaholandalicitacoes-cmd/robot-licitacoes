@@ -1,16 +1,15 @@
 import requests
 import datetime
 
-print("Iniciando busca de licitações no PNCP (Versão Otimizada)...")
+print("Iniciando busca de licitações no PNCP (Versão FOCO HOSPITALAR)...")
 
 # Estados permitidos
 estados_permitidos = ["PB", "PE", "RN", "AL", "CE", "SE"]
 
 # Termos de busca para a API (para aumentar a cobertura)
-termos_busca = ["manutenção", "hospitalar", "equipamento", "preventiva", "corretiva"]
+termos_busca = ["manutenção", "hospitalar", "equipamento", "médico", "clínica"]
 
 # Modalidades obrigatórias para a API
-# 2: Concorrência, 6: Pregão, 8: Dispensa, 10: Inexigibilidade, 14: Credenciamento
 modalidades = [2, 6, 8, 10, 14]
 
 hoje = datetime.date.today()
@@ -23,11 +22,16 @@ data_final = hoje.strftime("%Y%m%d")
 url = "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao"
 
 total_encontrados = 0
-vistos = set( ) # Para evitar duplicados entre termos/modalidades
+vistos = set( )
+
+# Termos que DEFINEM que é hospitalar (deve ter pelo menos um destes)
+termos_saude = ["hospitalar", "médico", "clínica", "saúde", "odontológico", "oxigênio", "gases", "hospital", "clínico"]
+
+# Termos que indicam que NÃO é o que queremos (Filtro de Exclusão)
+termos_bloqueados = ["veículo", "carro", "automotivo", "frota", "ar condicionado", "predial", "limpeza", "vigilância"]
 
 for mod in modalidades:
     for termo in termos_busca:
-        # Busca as primeiras 5 páginas para cada combinação (total de 50 itens por termo/mod)
         for pagina in range(1, 6):
             params = {
                 "dataInicial": data_inicial,
@@ -40,8 +44,6 @@ for mod in modalidades:
             
             try:
                 response = requests.get(url, params=params, timeout=15)
-                if response.status_code == 204: # No Content
-                    break
                 if response.status_code != 200:
                     continue
                     
@@ -51,7 +53,6 @@ for mod in modalidades:
                     break
                     
                 for item in items:
-                    # Criar um ID único para evitar duplicados
                     compra_id = f"{item.get('orgaoEntidade', {}).get('cnpj')}-{item.get('anoCompra')}-{item.get('sequencialCompra')}"
                     if compra_id in vistos:
                         continue
@@ -59,17 +60,23 @@ for mod in modalidades:
                     objeto = str(item.get("objetoCompra", "")).lower()
                     estado = item.get("unidadeOrgao", {}).get("ufSigla")
                     
-                    # Filtro de Estado
+                    # 1. Filtro de Estado
                     if estado not in estados_permitidos:
                         continue
                     
-                    # Filtro Refinado: Deve conter "manutenção" E algum termo hospitalar/equipamento/preventiva/corretiva
-                    # OU conter termos muito específicos como "engenharia clínica" ou "oxigênio medicinal"
-                    is_manutencao = "manutenção" in objeto
-                    is_hospitalar = any(p in objeto for p in ["hospitalar", "equipamento", "clínica", "médico", "hospital", "preventiva", "corretiva"])
-                    is_especifico = any(p in objeto for p in ["engenharia clínica", "oxigênio medicinal", "gases medicinais"])
+                    # 2. Filtro de Exclusão (Se tiver 'carro', 'veículo', etc, ignora na hora)
+                    if any(b in objeto for b in termos_bloqueados):
+                        continue
                     
-                    if (is_manutencao and is_hospitalar) or is_especifico:
+                    # 3. Lógica de Manutenção Hospitalar
+                    # Deve ter a palavra 'manutenção' E algum termo de saúde
+                    tem_manutencao = "manutenção" in objeto
+                    tem_saude = any(s in objeto for s in termos_saude)
+                    
+                    # Caso especial: Termos que já são hospitalares por si só
+                    is_especifico = any(e in objeto for e in ["engenharia clínica", "equipamentos hospitalares", "aparelhos médicos"])
+                    
+                    if (tem_manutencao and tem_saude) or is_especifico:
                         vistos.add(compra_id)
                         total_encontrados += 1
                         
@@ -77,13 +84,10 @@ for mod in modalidades:
                         print(f"Objeto: {objeto}")
                         print(f"Órgão: {item.get('orgaoEntidade', {}).get('razaoSocial')}")
                         print(f"Estado: {estado}")
-                        print(f"Município: {item.get('unidadeOrgao', {}).get('municipioNome')}")
-                        print(f"Valor estimado: R$ {item.get('valorTotalEstimado', 0):,.2f}")
                         print(f"Link: https://pncp.gov.br/app/editais/{item.get('orgaoEntidade', {} ).get('cnpj')}/{item.get('anoCompra')}/{item.get('sequencialCompra')}")
                         print("-" * 50)
                 
-            except Exception as e:
-                # Silencia erros de conexão para não travar o robô
+            except Exception:
                 break
 
-print(f"\nTotal de editais encontrados: {total_encontrados}")
+print(f"\nTotal de editais hospitalares encontrados: {total_encontrados}")
