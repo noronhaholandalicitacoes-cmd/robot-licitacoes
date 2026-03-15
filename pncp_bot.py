@@ -3,74 +3,82 @@ import datetime
 
 print("Iniciando busca de licitações no PNCP...")
 
-# Estados que o robô deve buscar
+# Estados permitidos
 estados_permitidos = ["PB", "PE", "RN", "AL", "CE", "SE"]
 
-# Palavras-chave das atividades
+# Palavras-chave
 palavras_chave = [
     "oxigênio",
     "gases medicinais",
     "ar medicinal",
-    "vácuo clínico",
+    "vácuo",
     "usina de oxigênio",
-    "locação de equipamentos médico hospitalar",
+    "locação",
+    "equipamentos hospitalares",
     "engenharia clínica",
     "esterilização",
     "cme",
     "lavanderia hospitalar",
-    "manutenção hospitalar",
     "manutenção corretiva",
     "manutenção preventiva",
-    "manutenção equipamentos hospitalares",
-    "equipamentos hospitalares",
     "central de gases",
     "compressor hospitalar"
 ]
 
-# Data de hoje
-hoje = datetime.date.today().strftime("%Y%m%d")
+# datas
+hoje = datetime.date.today()
+sete_dias = hoje - datetime.timedelta(days=7)
+
+data_inicial = sete_dias.strftime("%Y%m%d")
+data_final = hoje.strftime("%Y%m%d")
 
 url = "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao"
 
-params = {
-    "dataPublicacaoInicial": hoje,
-    "dataPublicacaoFinal": hoje,
-    "pagina": 1,
-    "tamanhoPagina": 100
-}
+pagina = 1
+total_encontrados = 0
 
-response = requests.get(url, params=params)
+while pagina <= 5:
 
-dados = response.json()
+    params = {
+        "dataPublicacaoInicial": data_inicial,
+        "dataPublicacaoFinal": data_final,
+        "pagina": pagina,
+        "tamanhoPagina": 100
+    }
 
-print("Buscando editais publicados hoje...\n")
+    response = requests.get(url, params=params)
+    dados = response.json()
 
-for item in dados.get("data", []):
+    for item in dados.get("data", []):
 
-    objeto = str(item.get("objetoCompra", "")).lower()
-    estado = item.get("unidadeOrgao", {}).get("ufSigla")
-    municipio = item.get("unidadeOrgao", {}).get("municipioNome")
-    orgao = item.get("orgaoEntidade", {}).get("razaoSocial")
-    valor = item.get("valorTotalEstimado")
+        objeto = str(item.get("objetoCompra", "")).lower()
+        estado = item.get("unidadeOrgao", {}).get("ufSigla")
+        municipio = item.get("unidadeOrgao", {}).get("municipioNome")
+        orgao = item.get("orgaoEntidade", {}).get("razaoSocial")
+        valor = item.get("valorTotalEstimado")
 
-    # filtro de estado
-    if estado not in estados_permitidos:
-        continue
+        if estado not in estados_permitidos:
+            continue
 
-    # filtro de palavras-chave
-    encontrou = False
+        encontrou = False
 
-    for palavra in palavras_chave:
-        if palavra in objeto:
-            encontrou = True
-            break
+        for palavra in palavras_chave:
+            if palavra in objeto:
+                encontrou = True
+                break
 
-    if not encontrou:
-        continue
+        if not encontrou:
+            continue
 
-    print("Objeto:", objeto)
-    print("Órgão:", orgao)
-    print("Estado:", estado)
-    print("Município:", municipio)
-    print("Valor estimado:", valor)
-    print("-" * 50)
+        total_encontrados += 1
+
+        print("Objeto:", objeto)
+        print("Órgão:", orgao)
+        print("Estado:", estado)
+        print("Município:", municipio)
+        print("Valor estimado:", valor)
+        print("-"*50)
+
+    pagina += 1
+
+print("\nTotal de editais encontrados:", total_encontrados)
