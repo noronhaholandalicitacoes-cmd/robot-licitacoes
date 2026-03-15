@@ -17,16 +17,10 @@ gc = gspread.authorize(creds)
 SPREADSHEET_ID = "1I5hzuAKQCFLgyqSswIc4gTHqbiAmJ39C2dgHRTN2Ncs"
 aba = gc.open_by_key(SPREADSHEET_ID).worksheet("editais capturados")
 
-# Buscar IDs já existentes para evitar duplicados
 ids_existentes = aba.col_values(1)
 
-# Estados permitidos
 estados_permitidos = ["PB", "PE", "RN", "AL", "CE", "SE"]
-
-# Termos de busca
 termos_busca = ["manutenção", "hospitalar", "equipamento", "médico", "clínica"]
-
-# Modalidades
 modalidades = [2, 6, 8, 10, 14]
 
 hoje = datetime.date.today()
@@ -68,4 +62,56 @@ for mod in modalidades:
                     cnpj = item.get("orgaoEntidade", {}).get("cnpj")
                     ano = item.get("anoCompra")
                     seq = item.get("sequencialCompra")
-                    co
+                    compra_id = f"{cnpj}-{ano}-{seq}"
+
+                    if compra_id in vistos or compra_id in ids_existentes:
+                        continue
+
+                    objeto = str(item.get("objetoCompra", "")).lower()
+                    estado = item.get("unidadeOrgao", {}).get("ufSigla")
+
+                    if estado not in estados_permitidos:
+                        continue
+
+                    if any(b in objeto for b in termos_bloqueados):
+                        continue
+
+                    tem_manutencao = "manutenção" in objeto
+                    tem_saude = any(s in objeto for s in termos_saude)
+                    is_especifico = any(e in objeto for e in ["engenharia clínica", "equipamentos hospitalares", "aparelhos médicos"])
+
+                    if (tem_manutencao and tem_saude) or is_especifico:
+                        vistos.add(compra_id)
+                        total_encontrados += 1
+
+                        municipio = item.get("unidadeOrgao", {}).get("municipioNome", "")
+                        orgao = item.get("orgaoEntidade", {}).get("razaoSocial", "")
+                        valor = item.get("valorTotalEstimado", 0)
+                        link = f"https://pncp.gov.br/app/editais/{cnpj}/{ano}/{seq}"
+                        data_pub = hoje.strftime("%d/%m/%Y")
+
+                        proximo_id = len(ids_existentes) + total_encontrados
+
+                        linha = [
+                            proximo_id,
+                            data_pub,
+                            "",
+                            orgao,
+                            objeto.capitalize(),
+                            municipio,
+                            f"{municipio}/{estado}",
+                            f"R$ {valor:,.2f}",
+                            "", "", "", "", "",
+                            link
+                        ]
+
+                        aba.append_row(linha)
+                        ids_existentes.append(compra_id)
+
+                        print(f"Adicionado: {objeto[:60]}")
+
+            except Exception as e:
+                print(f"Erro: {e}")
+                break
+
+print(f"\nTotal de editais adicionados: {total_encontrados}")
