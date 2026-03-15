@@ -1,0 +1,25 @@
+name: Robo PNCP
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+
+jobs:
+  executar:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v3
+
+      - name: Instalar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Instalar bibliotecas
+        run: pip install -r requirements.txt
+
+      - name: Executar robô
+        run: python pncp_bot.py
