@@ -7,7 +7,7 @@ print("Iniciando busca de licitações no PNCP (Versão FOCO HOSPITALAR)...")
 estados_permitidos = ["PB", "PE", "RN", "AL", "CE", "SE"]
 
 # Termos de busca para a API (para aumentar a cobertura)
-termos_busca = ["manutenção", "hospitalar", "equipamento", "médico", "clínica"]
+termos_busca = ["manutenção", "hospitalar", "equipamento", "medico", "clinica", "locação", "locacao", "CME", "esterilização", "preventiva", "corretiva"]
 
 # Modalidades obrigatórias para a API
 modalidades = [2, 6, 8, 10, 14]
@@ -25,10 +25,10 @@ total_encontrados = 0
 vistos = set( )
 
 # Termos que DEFINEM que é hospitalar (deve ter pelo menos um destes)
-termos_saude = ["hospitalar", "médico", "clínica", "saúde", "odontológico", "oxigênio", "gases", "hospital", "clínico"]
+termos_saude = ["hospitalar", "medico", "clinica", "saude", "odontologico", "oxigenio", "gases", "hospital", "clinico"]
 
 # Termos que indicam que NÃO é o que queremos (Filtro de Exclusão)
-termos_bloqueados = ["veículo", "carro", "automotivo", "frota", "ar condicionado", "predial", "limpeza", "vigilância"]
+termos_bloqueados = ["veículo", "alimentícios", "carro", "automotivo", "frota", "ar condicionado", "predial", "limpeza", "vigilância"]
 
 for mod in modalidades:
     for termo in termos_busca:
