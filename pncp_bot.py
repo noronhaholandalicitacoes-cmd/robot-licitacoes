@@ -15,12 +15,30 @@ creds = Credentials.from_service_account_info(credentials_dict, scopes=SCOPES)
 gc = gspread.authorize(creds)
 
 SPREADSHEET_ID = "1I5hzuAKQCFLgyqSswIc4gTHqbiAmJ39C2dgHRTN2Ncs"
-aba = gc.open_by_key(SPREADSHEET_ID).worksheet("editais capturados")
+aba = gc.open_by_key(SPREADSHEET_ID).worksheet("EDITAIS CAPTURADOS")
 
 ids_existentes = aba.col_values(1)
 
 estados_permitidos = ["PB", "PE", "RN", "AL", "CE", "SE"]
-termos_busca = ["manutenção", "hospitalar", "equipamento", "médico", "clínica"]
+
+# Termos de busca na API
+termos_busca = [
+    "hospital",
+    "manutenção",
+    "preventiva",
+    "corretiva",
+    "engenharia clinica",
+    "lavanderia",
+    "CME",
+    "esterilização",
+    "gas",
+    "oxigenio",
+    "medicinal",
+    "usina",
+    "rede de gas"
+]
+
+# Modalidades
 modalidades = [2, 6, 8, 10, 14]
 
 hoje = datetime.date.today()
@@ -33,8 +51,21 @@ url = "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao"
 total_encontrados = 0
 vistos = set()
 
-termos_saude = ["hospitalar", "médico", "clínica", "saúde", "odontológico", "oxigênio", "gases", "hospital", "clínico"]
-termos_bloqueados = ["veículo", "carro", "automotivo", "frota", "ar condicionado", "predial", "limpeza", "vigilância"]
+# Termos que confirmam que é da área de saúde
+termos_saude = [
+    "hospital", "hospitalar", "médico", "clínica", "saúde",
+    "odontológico", "oxigênio", "oxigenio", "gases", "gás", "gas",
+    "clínico", "cme", "esterilização", "lavanderia",
+    "engenharia clínica", "preventiva", "corretiva",
+    "equipamento", "medicinal", "usina", "rede de gás", "rede de gas"
+]
+
+# Termos que NÃO são do nosso interesse
+termos_bloqueados = [
+    "veículo", "carro", "automotivo", "frota",
+    "ar condicionado", "predial", "limpeza urbana",
+    "vigilância", "construção", "obra"
+]
 
 for mod in modalidades:
     for termo in termos_busca:
@@ -70,17 +101,30 @@ for mod in modalidades:
                     objeto = str(item.get("objetoCompra", "")).lower()
                     estado = item.get("unidadeOrgao", {}).get("ufSigla")
 
+                    # Filtro de Estado
                     if estado not in estados_permitidos:
                         continue
 
+                    # Filtro de Exclusão
                     if any(b in objeto for b in termos_bloqueados):
                         continue
 
-                    tem_manutencao = "manutenção" in objeto
+                    # Filtro de Relevância
                     tem_saude = any(s in objeto for s in termos_saude)
-                    is_especifico = any(e in objeto for e in ["engenharia clínica", "equipamentos hospitalares", "aparelhos médicos"])
+                    tem_manutencao = any(m in objeto for m in [
+                        "manutenção", "preventiva", "corretiva",
+                        "engenharia clínica", "esterilização",
+                        "lavanderia", "cme", "usina", "rede de gás",
+                        "rede de gas", "oxigênio", "oxigenio", "gas", "gás"
+                    ])
+                    is_especifico = any(e in objeto for e in [
+                        "engenharia clínica", "equipamentos hospitalares",
+                        "aparelhos médicos", "gases medicinais",
+                        "oxigênio medicinal", "usina de oxigênio",
+                        "rede de gases", "rede de gás medicinal"
+                    ])
 
-                    if (tem_manutencao and tem_saude) or is_especifico:
+                    if (tem_saude and tem_manutencao) or is_especifico:
                         vistos.add(compra_id)
                         total_encontrados += 1
 
