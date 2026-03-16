@@ -17,17 +17,19 @@ gc = gspread.authorize(creds)
 SPREADSHEET_ID = "1I5hzuAKQCFLgyqSswIc4gTHqbiAmJ39C2dgHRTN2Ncs"
 aba = gc.open_by_key(SPREADSHEET_ID).worksheet("EDITAIS CAPTURADOS")
 
-# Buscar todos os IDs já existentes para evitar duplicados
+# Buscar IDs existentes
 ids_existentes = aba.col_values(1)
 
-# Calcular próximo ID baseado no maior ID existente na planilha
+# Calcular próximo ID baseado no maior número existente
 ids_numericos = []
-for i in ids_existentes[1:]:  # Pula o cabeçalho
+for i in ids_existentes[1:]:
     try:
         ids_numericos.append(int(i))
     except:
         pass
 proximo_id = max(ids_numericos) + 1 if ids_numericos else 1
+
+print(f"Próximo ID: {proximo_id}")
 
 estados_permitidos = ["PB", "PE", "RN", "AL", "CE", "SE"]
 
@@ -49,22 +51,22 @@ url = "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao"
 total_encontrados = 0
 vistos = set()
 
-# Termos de manutenção hospitalar
+# Termos de manutenção (qualquer um destes)
 termos_manutencao = [
-    "manutenção preventiva", "manutenção corretiva",
-    "manutenção de equipamento", "manutenção hospitalar",
-    "engenharia clínica", "esterilização", "lavanderia hospitalar",
-    "cme", "calibração de equipamento", "manutenção de aparelho"
+    "manutenção", "preventiva", "corretiva",
+    "engenharia clínica", "esterilização", "lavanderia",
+    "cme", "calibração"
 ]
 
+# Termos de saúde (qualquer um destes)
 termos_saude = [
     "hospital", "hospitalar", "médico", "clínica", "saúde",
     "odontológico", "clínico", "uti", "samu", "hemodiálise",
-    "cirúrgico", "laboratorial", "fisioterapêutico", "autoclave",
+    "cirúrgico", "laboratorial", "fisioterapêutico",
     "equipamento médico", "equipamento hospitalar"
 ]
 
-# Gases medicinais (específico do negócio)
+# Gases medicinais
 termos_gases = [
     "oxigênio medicinal", "oxigenio medicinal", "gases medicinais",
     "gás medicinal", "gas medicinal", "usina de oxigênio",
@@ -73,13 +75,14 @@ termos_gases = [
     "gases hospitalares", "recarga de oxigênio", "recarga de oxigenio"
 ]
 
-# Termos que EXCLUEM o edital
+# Termos bloqueados
 termos_bloqueados = [
     "veículo", "carro", "automotivo", "frota", "predial",
     "limpeza urbana", "construção", "obra", "pavimentação",
     "rodovia", "gás de cozinha", "gás engarrafado", "botijão",
     "empilhadeira", "retroescavadeira", "trator", "ônibus",
-    "caminhão", "motocicleta", "ambulância"
+    "caminhão", "motocicleta", "ambulância", "escolar",
+    "alimentação", "merenda"
 ]
 
 for mod in modalidades:
@@ -147,10 +150,16 @@ for mod in modalidades:
                             data_abertura_fmt = ""
 
                         # Montar número da licitação
-                        modalidade_sigla = "PE" if "Pregão" in modalidade_nome else \
-                                           "DL" if "Dispensa" in modalidade_nome else \
-                                           "IE" if "Inexigibilidade" in modalidade_nome else \
-                                           "CC" if "Concorrência" in modalidade_nome else "LT"
+                        if "Pregão" in modalidade_nome:
+                            modalidade_sigla = "PE"
+                        elif "Dispensa" in modalidade_nome:
+                            modalidade_sigla = "DL"
+                        elif "Inexigibilidade" in modalidade_nome:
+                            modalidade_sigla = "IE"
+                        elif "Concorrência" in modalidade_nome:
+                            modalidade_sigla = "CC"
+                        else:
+                            modalidade_sigla = "LT"
 
                         numero_licitacao = f"{modalidade_sigla} - {numero}/{ano} - {orgao[:30]} - {municipio} {estado} - {data_abertura_fmt}"
 
